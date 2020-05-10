@@ -1,0 +1,84 @@
+#Load packages--------------------------------------------------------------------------------------------------------------
+require(pROC)
+require(ISLR)
+
+#Set par to square (for the ROC graph)--------------------------------------------------------------------------------------
+par(pty = "s") #set back to par(pty = "m") after running the graphs
+data("Smarket")
+
+#ROC with logistic regression-----------------------------------------------------------------------------------------------
+n<-100 #Number of test samples graphed. Note: If there are many samples, it is better the lines to be semi-transparent. That is why the color of the lines ends in "22"
+z<-0.75 #Proportion of observations assigned to the training data (from 0 to 1)
+auc_samples_log<-numeric(n) #Vector to store AUC of every ROC
+
+for (i in 1:n){
+                #set seed if you want it to be reproducible
+  #set.seed(i)
+  
+                #split dataset in training and test
+  testrows <- sample(x= 1:nrow(Smarket), size= nrow(Smarket)*z, 
+                   replace = F) 
+  train <- Smarket[testrows,]
+  test <- Smarket[-testrows,]
+  
+                #logistic regression
+  train_mod <- glm(Direction~Lag1+Lag2, data = train, family = "binomial")
+  test$prediction <- predict(train_mod, 
+                           type = "response", newdata = test)
+                           
+                #plot the test ROC
+ ifelse(i==1, 
+         roc(response = test$Direction, 
+             predictor = test$prediction, 
+             plot=TRUE, legacy.axes=TRUE, percent=TRUE, xlab="False Positive Percentage", 
+             ylab="True Postive Percentage",col="#4daf4a22"),
+         plot.roc(test$Direction, test$prediction, percent=TRUE, 
+           col="#4daf4a22", lwd=1, add=TRUE))
+           
+                #store AUC and plot a boxplot
+ auc_samples_log[i]<-auc(test$Direction, test$prediction)
+ if(i==n) 
+    {boxplot(auc_samples,
+             notch = TRUE,
+             ylab = "AUC",
+             main = c(n, "test samples"))}
+}
+
+#ROC with Linear Discriminant Analysis (LDA)--------------------------------------------------------------------------------
+require(MASS)
+
+n<-100 #Number of test samples graphed. Note: If there are many samples, it is better the lines to be semi-transparent. That is why the color of the lines ends in "22"
+z<-0.75 #Proportion of observations assigned to the training data (from 0 to 1)
+auc_samples_LDA<-numeric(n) #Vector to store AUC of every ROC
+
+for (i in 1:n){
+  #set seed if you want it to be reproducible
+  #set.seed(i)
+  
+  #split dataset in training and test
+  testrows <- sample(x= 1:nrow(Smarket), size= nrow(Smarket)*z, 
+                     replace = F) 
+  train <- Smarket[testrows,]
+  test <- Smarket[-testrows,]
+  
+  #LDA
+  LDA_mod<-lda(Direction ~ Lag1 + Lag2,
+               data = train)
+  LDA.pred<-predict(LDA_mod, test)
+  test$predictionLDA<-LDA.pred$posterior[,2]
+  ifelse(i==1,
+         roc(response = test$Direction, 
+             predictor = test$predictionLDA, 
+             plot=TRUE, legacy.axes=TRUE, percent=TRUE, xlab="False Positive Percentage", 
+             ylab="True Postive Percentage",col="#FF000022"),
+         plot.roc(test$Direction, test$predictionLDA, percent=TRUE, 
+                  col="#FF000022", lwd=1, add=TRUE))
+        
+         #store AUC and plot a boxplot
+  auc_samples_LDA[i]<-auc(test$Direction, test$predictionLDA)
+  if(i==n) 
+    {boxplot(auc_samples_LDA,
+             notch = TRUE,
+             ylab = "AUC",
+             main = c(n, "test samples"))}
+}
